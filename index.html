@@ -41,6 +41,7 @@
         .defog-container--book,
         .defog-container--consulting {
             border: 2px solid #E8E8E8;
+            position: relative;
         }
 
         /* Make sure this has higher specificity */
@@ -48,8 +49,7 @@
             border: 2px solid #E8E8E8;
         }
 
-        .defog-container.defog-container--selected::before {
-            content: '';
+        .defog-border-overlay {
             position: absolute;
             top: -4px;
             left: -4px;
@@ -59,12 +59,16 @@
             border-radius: 16px;
             pointer-events: none;
             z-index: 1;
+            display: none;
         }
 
-        /* Remove any existing ::before styles */
-        .defog-container--plan::before,
-        .defog-container--book::before {
-            content: none;
+        .defog-container--selected .defog-border-overlay {
+            display: block;
+        }
+
+        /* Remove the old pseudo-element styles */
+        .defog-container.defog-container--selected::before {
+            display: none;
         }
 
         .defog-checkbox-row {
@@ -633,12 +637,13 @@
     <div class="defog-checkout-widget">
         <h1 class="defog-title">Choose your best option</h1>
         <div class="defog-container defog-container--plan">
+            <div class="defog-border-overlay"></div>
             <div class="defog-container-image">
                 <img src="https://statics.myclickfunnels.com/workspace/vGLVoO/image/14685178/file/c35f7d5a3e75f0bd791fe759cfff4978.png" alt="Thinkwell AI App">
             </div>
             <div class="defog-checkbox-row">
                 <div class="defog-checkbox-group">
-                    <input type="checkbox" class="defog-checkbox" id="thinkwellAI" checked>
+                    <input type="checkbox" class="defog-checkbox" id="thinkwellAI" checked onchange="updateContainerStyles()">
                     <span class="defog-label">Thinkwell AI app</span>
                 </div>
                 <span class="defog-required"></span>
@@ -646,7 +651,7 @@
             <div class="defog-book-subtitle">Identify your triggers,<br>cure your brain fog</div>
             <div class="defog-plan-text">Choose a plan:</div>
             <div class="defog-plan-options">
-                <div class="defog-plan-option">
+                <div class="defog-plan-option" onclick="selectPlan(this)" ontouchstart="selectPlan(this)">
                     <div class="defog-plan-radio"></div>
                     <div class="defog-plan-content">
                         <span class="defog-plan-name">3-MONTH PLAN</span>
@@ -660,7 +665,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="defog-plan-option defog-plan-option--selected defog-plan-option--six-month">
+                <div class="defog-plan-option defog-plan-option--selected defog-plan-option--six-month" onclick="selectPlan(this)" ontouchstart="selectPlan(this)">
                     <div class="defog-plan-radio"></div>
                     <div class="defog-plan-content">
                         <span class="defog-plan-name">6-MONTH PLAN</span>
@@ -690,12 +695,13 @@
             </div>
         </div>
         <div class="defog-container defog-container--book">
+            <div class="defog-border-overlay"></div>
             <div class="defog-container-image">
                 <img src="https://statics.myclickfunnels.com/workspace/vGLVoO/image/14685180/file/aadf9de162143319d5a34d1caab908d3.png" alt="Thinkwell Book">
             </div>
             <div class="defog-checkbox-row">
                 <div class="defog-checkbox-group">
-                    <input type="checkbox" class="defog-checkbox" id="thinkwellBook" checked>
+                    <input type="checkbox" class="defog-checkbox" id="thinkwellBook" checked onchange="handleBookChange(this)">
                     <span class="defog-label">Thinkwell Book</span>
                 </div>
                 <span class="defog-required"></span>
@@ -710,12 +716,13 @@
             </div>
         </div>
         <div class="defog-container defog-container--consulting">
+            <div class="defog-border-overlay"></div>
             <div class="defog-container-image">
                 <img src="https://statics.myclickfunnels.com/workspace/vGLVoO/image/14685179/file/e5be98b1643dd39dfde669141ba06652.png" alt="Thinkwell Email Consulting">
             </div>
             <div class="defog-checkbox-row">
                 <div class="defog-checkbox-group">
-                    <input type="checkbox" class="defog-checkbox" id="emailConsulting">
+                    <input type="checkbox" class="defog-checkbox" id="emailConsulting" onchange="updateContainerStyles()">
                     <span class="defog-label">Thinkwell Email Consulting</span>
                 </div>
                 <span class="defog-optional"></span>
@@ -734,7 +741,7 @@
                 Fast Responses <span>|</span> Real-time Support <span>|</span> Daily Messaging <span>|</span> Cancel Anytime
             </div>
         </div>
-        <a href="#" class="defog-cta">YES! I WANT THIS!</a>
+        <a href="#" class="defog-cta" onclick="handleCtaClick(event)">YES! I WANT THIS!</a>
         <div class="defog-footer">
             <span><span class="defog-icon">🚚</span> Quick Delivery</span>
             <span><span class="defog-icon">🔒</span> Secure Transaction</span>
@@ -744,14 +751,13 @@
     <script>
         (function() {
             document.addEventListener('DOMContentLoaded', function() {
-                const planOptions = document.querySelectorAll('.defog-plan-option');
                 const bestValueTag = document.querySelector('.defog-tag');
                 const emailConsulting = document.getElementById('emailConsulting');
                 const thinkwellAI = document.getElementById('thinkwellAI');
                 const thinkwellBook = document.getElementById('thinkwellBook');
                 const ctaButton = document.querySelector('.defog-cta');
 
-                // ClickFunnels order form URLs
+                // ClickFunnels order form URLs - mapping different selection combinations to specific checkout links
                 const checkoutUrls = {
                     APP_3MONTH_CONSULTING: 'https://www.trythinkwell.com/order-form-full-package-ai-book-consulting-1001',  // Everything selected (3-month)
                     APP_6MONTH_CONSULTING: 'https://www.trythinkwell.com/order-form-full-package-ai-book-consulting-1001',  // Everything selected (6-month)
@@ -761,70 +767,64 @@
                     CONSULTING_ONLY: 'https://www.trythinkwell.com/order-form-consulting-book-1001'  // Consulting + book
                 };
 
-                function getCheckoutUrl() {
-                    // Get current states
-                    const selectedPlan = document.querySelector('.defog-plan-option--selected');
-                    const isAppSelected = thinkwellAI.checked;
-                    const isConsultingSelected = emailConsulting.checked;
-                    const isBookSelected = thinkwellBook.checked;
+                // Function to handle plan selection - updates summary and visual selection state
+                window.selectPlan = function(element) {
+                    const planOptions = document.querySelectorAll('.defog-plan-option');
+                    planOptions.forEach(opt => {
+                        opt.classList.remove('defog-plan-option--selected');
+                        opt.querySelector('.defog-plan-price').style.color = '';
+                    });
                     
-                    // Handle case when neither app nor consulting is selected
-                    if (!isAppSelected && !isConsultingSelected) {
-                        if (isBookSelected) {
-                            return checkoutUrls.BOOK_ONLY;  // Link 5
-                        }
-                        return '#';  // No selection
-                    }
-
-                    // Handle consulting-only case
-                    if (!isAppSelected && isConsultingSelected) {
-                        return checkoutUrls.CONSULTING_ONLY;  // Link 6
-                    }
-
-                    // Handle app-related cases
-                    if (isAppSelected) {
-                        const planName = selectedPlan.querySelector('.defog-plan-name').textContent;
-                        const is3Month = planName.includes('3-MONTH');
-
-                        if (isConsultingSelected) {
-                            // App + Consulting cases
-                            return is3Month ? 
-                                checkoutUrls.APP_3MONTH_CONSULTING :  // Link 1
-                                checkoutUrls.APP_6MONTH_CONSULTING;   // Link 2
+                    element.classList.add('defog-plan-option--selected');
+                    element.querySelector('.defog-plan-price').style.color = 'white';
+                    
+                    const planName = element.querySelector('.defog-plan-name').textContent;
+                    let totalPrice, monthlyPrice;
+                    
+                    if (planName === '3-MONTH PLAN') {
+                        bestValueTag.textContent = 'Sale Price';
+                        totalPrice = { original: '121.62', final: '72.97' };
+                        monthlyPrice = { original: '40.54', final: '24.32' };
                         } else {
-                            // App-only cases
-                            return is3Month ? 
-                                checkoutUrls.APP_3MONTH :  // Link 3
-                                checkoutUrls.APP_6MONTH;   // Link 4
-                        }
+                        bestValueTag.textContent = 'Best Value';
+                        totalPrice = { original: '205.03', final: '102.52' };
+                        monthlyPrice = { original: '34.17', final: '17.09' };
                     }
+                    
+                    document.querySelector('.defog-summary-total').innerHTML = 
+                        `<span class="defog-original">$${totalPrice.original}</span>$${totalPrice.final}`;
+                    
+                    document.querySelector('.defog-summary-breakdown').innerHTML = `
+                        <span class="defog-original">${monthlyPrice.original}</span>
+                        <span class="defog-center-price">$${monthlyPrice.final}</span>
+                        <span class="defog-period">/ month</span>
+                    `;
+                    
+                    document.querySelector('.defog-summary-period').textContent = 
+                        `Billed every ${planName.includes('3-MONTH') ? '3 months' : '6 months'}`;
 
-                    return '#';  // Fallback
-                }
+                    updateButtonState();
+                };
 
-                // Function to update button state
-                function updateButtonState() {
-                    const isAnyCheckboxChecked = thinkwellAI.checked || thinkwellBook.checked || emailConsulting.checked;
-                    if (isAnyCheckboxChecked) {
-                        ctaButton.classList.remove('defog-cta--disabled');
-                        ctaButton.href = getCheckoutUrl();
-                    } else {
-                        ctaButton.classList.add('defog-cta--disabled');
-                        ctaButton.href = '#';
+                // Function to handle book checkbox changes - prevents unchecking if AI or Consulting is selected
+                window.handleBookChange = function(element) {
+                    if ((thinkwellAI.checked || emailConsulting.checked) && !element.checked) {
+                        element.checked = true;
+                        return;
                     }
-                }
+                    updateContainerStyles();
+                };
 
-                // Function to update container styling based on checkbox state
-                function updateContainerStyles() {
+                // Function to update container styling - toggles selected state and updates book price/subtitle
+                window.updateContainerStyles = function() {
                     // AI App container
                     const aiContainer = thinkwellAI.closest('.defog-container');
                     if (thinkwellAI.checked) {
                         aiContainer.classList.add('defog-container--selected');
-                        thinkwellBook.checked = true;  // Force book to be checked
-                        thinkwellBook.disabled = true;  // Disable book checkbox
+                        thinkwellBook.checked = true;
+                        thinkwellBook.disabled = true;
                     } else {
                         aiContainer.classList.remove('defog-container--selected');
-                        // Only enable book checkbox if consulting is also not checked
                         thinkwellBook.disabled = emailConsulting.checked;
                     }
 
@@ -840,26 +840,23 @@
                     const consultingContainer = emailConsulting.closest('.defog-container');
                     if (emailConsulting.checked) {
                         consultingContainer.classList.add('defog-container--selected');
-                        thinkwellBook.checked = true;  // Force book to be checked
-                        thinkwellBook.disabled = true;  // Disable book checkbox
+                        thinkwellBook.checked = true;
+                        thinkwellBook.disabled = true;
                     } else {
                         consultingContainer.classList.remove('defog-container--selected');
-                        // Only enable book checkbox if AI is also not checked
                         thinkwellBook.disabled = thinkwellAI.checked;
                     }
 
-                    // Update book price and subtitle based on AI and consulting selection
+                    // Update book price and subtitle based on AI or Consulting selection
                     const bookPriceContainer = bookContainer.querySelector('.defog-price-grid');
                     const bookSubtitle = bookContainer.querySelector('.defog-book-subtitle');
                     
                     if (!thinkwellAI.checked && !emailConsulting.checked) {
-                        // Neither AI nor consulting is selected
                         bookPriceContainer.innerHTML = `
                             <div class="defog-price-tag">$79.88</div>
                         `;
                         bookSubtitle.textContent = 'Price without Thinkwell AI';
                     } else {
-                        // Either AI or consulting is selected
                         bookPriceContainer.innerHTML = `
                             <div class="defog-free-tag">FREE</div>
                             <div class="defog-original-price">$79.88</div>
@@ -868,77 +865,72 @@
                     }
 
                     updateButtonState();
+                };
+
+                // Function to handle CTA button click
+                window.handleCtaClick = function(event) {
+                    event.preventDefault();
+                    const url = getCheckoutUrl();
+                    if (url !== '#') {
+                        window.top.location.href = url;
+                    }
+                };
+
+                // Function to update button state and URL - enables/disables button and sets href based on selections
+                function updateButtonState() {
+                    const isAnyCheckboxChecked = thinkwellAI.checked || thinkwellBook.checked || emailConsulting.checked;
+                    const ctaButton = document.querySelector('.defog-cta');
+                    
+                    if (isAnyCheckboxChecked) {
+                        ctaButton.classList.remove('defog-cta--disabled');
+                        ctaButton.href = getCheckoutUrl();
+                    } else {
+                        ctaButton.classList.add('defog-cta--disabled');
+                        ctaButton.href = '#';
+                    }
                 }
 
-                // Plan selection functionality
-                planOptions.forEach(option => {
-                    option.addEventListener('click', function() {
-                        planOptions.forEach(opt => {
-                            opt.classList.remove('defog-plan-option--selected');
-                            opt.querySelector('.defog-plan-price').style.color = '';
-                        });
-                        
-                        this.classList.add('defog-plan-option--selected');
-                        this.querySelector('.defog-plan-price').style.color = 'white';
-                        
-                        const planName = this.querySelector('.defog-plan-name').textContent;
-                        let totalPrice, monthlyPrice;
-                        
-                        if (planName === '3-MONTH PLAN') {
-                            bestValueTag.textContent = 'Sale Price';
-                        } else {
-                            bestValueTag.textContent = 'Best Value';
+                // Function to determine the correct checkout URL based on current selections
+                function getCheckoutUrl() {
+                    const selectedPlan = document.querySelector('.defog-plan-option--selected');
+                    const isAppSelected = thinkwellAI.checked;
+                    const isConsultingSelected = emailConsulting.checked;
+                    const isBookSelected = thinkwellBook.checked;
+                    
+                    if (!isAppSelected && !isConsultingSelected) {
+                        if (isBookSelected) {
+                            return checkoutUrls.BOOK_ONLY;
                         }
-                        
-                        switch(planName) {
-                            case '3-MONTH PLAN':
-                                totalPrice = { original: '121.62', final: '72.97' };
-                                monthlyPrice = { original: '40.54', final: '24.32' };
-                                break;
-                            case '6-MONTH PLAN':
-                                totalPrice = { original: '205.03', final: '102.52' };
-                                monthlyPrice = { original: '34.17', final: '17.09' };
-                                break;
-                        }
-                        
-                        const totalPriceElement = document.querySelector('.defog-summary-total');
-                        totalPriceElement.innerHTML = `<span class="defog-original">$${totalPrice.original}</span>$${totalPrice.final}`;
-                        
-                        const monthlyBreakdown = document.querySelector('.defog-summary-breakdown');
-                        monthlyBreakdown.innerHTML = `
-                            <span class="defog-original">${monthlyPrice.original}</span>
-                            <span class="defog-center-price">$${monthlyPrice.final}</span>
-                            <span class="defog-period">/ month</span>
-                        `;
-                        
-                        const period = planName.includes('3-MONTH') ? '3 months' : '6 months';
-                        document.querySelector('.defog-summary-period').textContent = `Billed every ${period}`;
-
-                        updateButtonState();
-                    });
-                });
-
-                // Add event listeners for checkbox changes
-                thinkwellAI.addEventListener('change', updateContainerStyles);
-                thinkwellBook.addEventListener('change', function(e) {
-                    // Prevent unchecking if AI or consulting is selected
-                    if ((thinkwellAI.checked || emailConsulting.checked) && !e.target.checked) {
-                        e.preventDefault();
-                        e.target.checked = true;
-                        return;
+                        return '#';
                     }
-                    updateContainerStyles();
-                });
-                emailConsulting.addEventListener('change', updateContainerStyles);
 
-                // Initialize container styles and button state
-                updateContainerStyles();
-                updateButtonState();
+                    if (!isAppSelected && isConsultingSelected) {
+                        return checkoutUrls.CONSULTING_ONLY;
+                    }
 
-                // Timer functionality
+                    if (isAppSelected) {
+                        const planName = selectedPlan.querySelector('.defog-plan-name').textContent;
+                        const is3Month = planName.includes('3-MONTH');
+
+                        if (isConsultingSelected) {
+                            return is3Month ? 
+                                checkoutUrls.APP_3MONTH_CONSULTING :
+                                checkoutUrls.APP_6MONTH_CONSULTING;
+                        } else {
+                            return is3Month ? 
+                                checkoutUrls.APP_3MONTH :
+                                checkoutUrls.APP_6MONTH;
+                        }
+                    }
+
+                    return '#';
+                }
+
+                // Timer functionality with simplified execution using setInterval for efficiency
                 let timeLeft = 15 * 60;
-                function updateTimer() {
+                const timerInterval = setInterval(function() {
                     try {
+                        if (timeLeft > 0) {
                         const minutes = Math.floor(timeLeft / 60);
                         const seconds = timeLeft % 60;
                         const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -948,16 +940,19 @@
                             sixMonthPlan.style.setProperty('--timer-value', `'⏰ Special Offer Ends In ${formattedTime}'`);
                         }
                         
-                        if (timeLeft > 0) {
                             timeLeft--;
-                            setTimeout(updateTimer, 1000);
+                        } else {
+                            clearInterval(timerInterval);
                         }
                     } catch (error) {
                         console.error('Error updating timer:', error);
+                        clearInterval(timerInterval);
                     }
-                }
+                }, 1000);
                 
-                updateTimer();
+                // Initialize container styles and button state on page load
+                updateContainerStyles();
+                updateButtonState();
             });
         })();
     </script>
